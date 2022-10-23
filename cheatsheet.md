@@ -55,8 +55,8 @@ example:
 ```bash
 #!/bin/bash
 
-ansible all -m yum "name=httpd state=latest"
-ansible all -m service "name=httpd state=started enabled=yes"
+ansible all -m yum -a "name=httpd state=latest"
+ansible all -m service -a "name=httpd state=started enabled=yes"
 ```
 
 **Note**: make sure to make the script executable using `chmod` command
@@ -301,8 +301,7 @@ my_packages:
 │   └── ansible_facts.yaml
 └── <font color="#0087FF">vars</font>
     └── packages.yaml
-
-2 directories, 4 files</pre>
+</pre>
 
 command to run playbook:
 
@@ -437,7 +436,7 @@ loops come in handy when working with modules that do not accept lists. Loops wi
 ...
 ```
 
-**Note**: if we are looping over a multivalued variables (object-like variables) then we can access attributes using dot notation. For example, if we have a variable with attributes `username` and `password`, then we would access them using `item.username` and `item.password` 
+**Note**: if we are looping over a multivalued variables (object-like variables) then we can access attributes using dot notation. For example, if we have a variable with attributes `username` and `password`, then we would access them using `item.username` and `item.password` or using `item["username"]` and `item["password"]`
 
 
 TODO: add example to use register (stores task output for logging)
@@ -584,7 +583,38 @@ handlers:
 ...
 ```
 
-# [Block](https://docs.ansible.com/ansible/latest/user_guide/playbooks_blocks.html)
+# [Blocks](https://docs.ansible.com/ansible/latest/user_guide/playbooks_blocks.html)
+
+Grouping tasks using blocks:
+
+```yaml
+tasks:
+   - name: Install, configure, and start Apache
+     block:
+       - name: Install httpd and memcached
+         ansible.builtin.yum:
+           name:
+           - httpd
+           - memcached
+           state: present
+
+       - name: Apply the foo config template
+         ansible.builtin.template:
+           src: templates/src.j2
+           dest: /etc/foo.conf
+
+       - name: Start service bar and enable it
+         ansible.builtin.service:
+           name: bar
+           state: started
+           enabled: True
+     when: ansible_facts['distribution'] == 'CentOS'
+     become: true
+     become_user: root
+     ignore_errors: yes
+...
+```
+Handling errors with blocks:
 
 ```yaml
   tasks:
@@ -646,11 +676,11 @@ handlers:
       debug:
         msg: current value of the st variable is {{ st }}
     
-    - name: changing file permissions if that’s needed
+    - name: changing file permissions if that is needed
       file:
         path: /tmp/statfile
         mode: 0640
-      when: st.stat.mode != ’0640’
+      when: st.stat.mode != '0640'
 ...
 ```
 
@@ -708,6 +738,7 @@ Common File Modules:
 - `synchronize`
 - `stat`
 
+---
 
 # Managing SELinux
 
@@ -813,7 +844,6 @@ Common File Modules:
         name: httpd
         status: started
         enabled: yes
-
 ...
 ```
 
@@ -905,6 +935,8 @@ import and includ tasks, playbook, files, etc
 
 ## [Configuring repository access](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/yum_repository_module.html)
 
+Setup on managed hosts
+
 ```yaml
 ---
 - name: setting up repo access
@@ -919,6 +951,50 @@ import and includ tasks, playbook, files, etc
       baseurl: ftp://control.example.com/repo/
       enabled: yes
       gpgcheck: no
+...
+```
+Setup on control host
+
+```yaml
+- name: setup ftp-based repo
+  hosts: localhost
+  task:
+    - name: install ftp and createrepo
+      yum:
+        name: 
+          - vsftpd
+          - createrepo
+        state: latest
+
+    - name: start ftp server
+      service:
+        name: vsftpd
+        state: started
+        enabled: yes
+      
+    - name: open firewall for ftp
+      firewalld:
+        service: ftp
+        state: enabled 
+        permenant: yes
+
+    - name: make a directory
+      file: 
+        path: /var/ftp/repo
+        state: directory
+
+    - name: download packages to the directory
+      yum:
+        name: nginx
+        state: latest
+        download_only: yes
+        download_dir: /var/ftp/repo
+
+    - name: make a repo from the directory
+      command: createrepo /var/ftp/repo
+
+---
+
 ...
 ```
 
@@ -980,7 +1056,7 @@ More advanced example for managing software
   hosts: localhost
   tasks:
     - fail: # must pass variables newhost and newhostip using -e option
-        msg: "add the options -e newhost=hostname -e newhostip=ip.ad.dr.ess and try again"
+        msg: "add the options -e newhost=hostname -e newhostip=ip.address and try again"
       when: (newhost is undefined) or (newhostip is undefined)
     - name: add new host to inventory
       lineinfile:
@@ -1048,3 +1124,222 @@ More advanced example for managing software
 
 - setting up passwords to new users
 - copying keypairs
+ 
+
+ ---
+
+ # Managing users and groups
+
+
+ ## Creating a user with passowrd
+
+ Method 1: (Not secure)
+
+ ```yaml
+---
+- name: playbook to create a user with encrypted password (not secure)
+  hosts: ansible2
+  vars:
+    password: root
+    user: anna
+  tasks:
+    - name: create user
+      user:
+        name: "{{ user }}"
+        groups: wheel
+        append: yes # appends to secondary groups
+        state: present
+    # - name: echo password to file to see
+    #   shell: echo "{{ password }}" > /root/pass_file
+    - name: set password for user
+      shell: echo {{ password }} | passwd --stdin {{ user }}
+...
+ ```
+
+ Method 2: 
+
+ ```yaml
+ ---
+- name: create user with encrypted password
+  hosts: ansible2
+  vars_prompt:
+    - name: username
+      prompt: enter username
+    - name: password
+      prompt: enter password
+      private: yes
+      encrypt: sha512_crypt
+  
+  tasks:
+    - name: create user with encrypted password
+      user:
+        name: "{{ username }}"
+        password: "{{ password }}"
+        groups: wheel
+        append: yes
+...
+ ```
+
+## managing sudo for users
+
+directory tree:
+
+<pre><font color="#0087FF">.</font>
+├── ansible.cfg
+├── inventory.yaml
+├── <font color="#0087FF">playbooks</font>
+│   └── users_sudo.yaml
+├── <font color="#0087FF">templates</font>
+│   └── sudo_users.j2
+└── <font color="#0087FF">vars</font>
+    └── users.yaml
+
+</pre>
+
+`users.yaml`:
+
+```yaml
+---
+users:
+  - name: bob
+    sudo: true
+  - name: mac
+    sudo: true
+  - name: cole
+    sudo: true
+  - name: alex
+    sudo: false
+...
+```
+
+`sudo_users.j2`:
+
+```jinja
+{{ item.name }}  ALL=(ALL)  NOPASSWD: ALL
+
+```
+
+`users_sudo.yaml`:
+
+```yaml
+---
+- name: manage sudo privilege for users
+  hosts: ansible2
+  vars_files:
+    ../vars/users.yaml
+  tasks:
+    - name: create users
+      user:
+        name: "{{ item.name }}"
+      loop: "{{ users }}"
+    - name: give sudo privilege to users
+      template:
+        src: ../templates/sudo_users.j2
+        dest: /etc/sudoers.d/{{ item.name }}
+      loop: "{{ users }}"
+      when: item.sudo == true
+...
+```
+
+we will create a seperate file for each user as follows
+<pre>$ sudo ls /etc/sudoers.d/
+bob  cole  mac</pre>
+
+## managing ssh keys
+
+Coming soon..
+
+---
+
+# Managing Storage
+
+## Managing partitions
+
+```yaml
+---
+- name: playbook to create partitions on a block device
+  hosts: ansible3
+  tasks:
+    - name: create first partition with lvm flag
+      parted:
+        name: lvm_partition
+        label: gpt
+        device: /dev/sdb
+        number: 1
+        flags: lvm
+        # part_start: 1024s
+        part_end: 10MiB
+        state: present
+    
+    - name: create a second partion for swap
+      parted:
+        name: swap_partition
+        label: gpt
+        device: /dev/sdb
+        number: 2
+        flags: swap
+        part_start: 10MiB
+        part_end: 30MiB
+        state: present
+...
+```
+
+## Managing logical Groups and Volumes
+
+```yaml
+---
+# Note: this script depends on "partitions.yaml" for creating a partition to be used for logical group
+- name: playbook to configure logical volume
+  hosts: ansible3
+  tasks:
+    - name: create logical group
+      lvg:
+        vg: data_vg
+        pesize: "1" # default 4 MB, value should be string
+        pvs: /dev/sdb1 # could be multiple physical devices. Ex, /dev/sdb1, /dev/sdc1, /dev/sde1
+        state: present # default is present
+    
+    - name: create logical volume
+      lvol:
+        lv: data_lv
+        vg: data_vg
+        size: 100%VG
+        state: present
+
+    - name: create filesystem
+      filesystem:
+        dev: /dev/data_vg/data_lv
+        fstype: ext4
+
+    - name: mount filesystem # entry will be added to /etc/fstab
+      mount:
+        src: /dev/data_vg/data_lv
+        path: /mnt/data
+        fstype: ext4
+        state: present
+...
+```
+
+## Managing Swap space
+
+```yaml
+---
+# note: this script depends on "partitions.yaml" for creating a partition for swap space
+- name: playbook to create a swap space
+  hosts: ansible3
+  tasks:
+    - name: configure swap space partition
+      filesystem:
+        fstype: swap
+        dev: /dev/sdb2
+  
+    - name: persistently activate swap # optional but to show how to do it
+        fstype: swap
+        src: /dev/sdb2
+        path: none
+        state: present
+
+    - name: activate swap space
+      command: swapon /dev/sdb2
+...
+```
