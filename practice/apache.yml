@@ -1,7 +1,0 @@
----
-- name: playbook to role for setting up apache
-  hosts: webservers
-  become: yes
-  roles: 
-    - sample-apache
-...

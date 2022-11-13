@@ -1,9 +1,0 @@
-[proxy]
-ansible2
-
-[webservers]
-ansible3
-ansible4
-
-[database]
-ansible5

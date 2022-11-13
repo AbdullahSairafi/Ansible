@@ -1,8 +1,0 @@
----
-- name: playbook to print ansible_facts attributes
-  hosts: localhost
-  tasks:
-    - name: use debug to print the ansible_facts variable
-      debug:
-        var: ansible_facts
-...
