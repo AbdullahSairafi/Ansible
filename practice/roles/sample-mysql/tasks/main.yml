@@ -1,0 +1,7 @@
+---
+# tasks file for sample-mysql
+- name: include create_lvol.yml
+  include_tasks: create_lvol.yml
+- name: include task for mysql setup
+  include_tasks: mysql_setup.yml
+...

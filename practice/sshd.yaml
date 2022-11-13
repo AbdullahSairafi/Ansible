@@ -1,0 +1,23 @@
+---
+- name: playbook to modify sshd configuration
+  hosts: all
+  tasks:
+    - name: set banner to /etc/motd
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        backup: yes
+      loop:
+        - { regexp: "^#Banner", line: "Banner /etc/motd" }
+        - { regexp: "^X11Forwarding", line: "X11Forwarding no" }
+        - { regexp: "^#MaxAuthTries", line: "MaxAuthTries 3" }
+      notify: restart_ssh
+  
+  handlers:
+    - name: restart_ssh
+      service:
+        name: sshd
+        state: restarted
+...

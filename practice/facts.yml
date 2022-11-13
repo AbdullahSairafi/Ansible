@@ -1,0 +1,22 @@
+---
+- name: playbook to create custom fact
+  hosts: database
+  become: yes
+  tasks:
+    - name: create directory in target host/s
+      file:
+        path: /etc/ansible/facts.d
+        state: directory
+        owner: automation
+        group: automation
+        
+    - name: create file custom fact file
+      blockinfile:
+        block: |
+          [sample_exam]
+          server_role = mysql
+        path: /etc/ansible/facts.d/custom.fact
+        create: yes
+        owner: automation
+        group: automation
+...

@@ -1,0 +1,21 @@
+---
+- name: playbook to use archiving in ansible
+  hosts: database
+  become: yes
+  tasks:
+    - name: create a file with custom content
+      lineinfile:
+        path: /mnt/mysql_backups/database_list.txt
+        line: "dev,test,qa,prod."
+        create: yes
+        owner: automation
+        group: automation
+ 
+    - name: create an archive file
+      archive:
+        path: /mnt/mysql_backups/database_list.txt
+        dest: /mnt/mysql_backups/archive.gz
+        format: gz
+        owner: automation
+        group: automation
+...

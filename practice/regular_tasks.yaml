@@ -1,0 +1,13 @@
+---
+- name: playbook to set up a chron tab
+  hosts: "proxy"
+  become: yes #elevate to root user  
+  tasks:
+    - name: set crontab job
+      cron:
+        name: "date_crontab"
+        minute: "0"
+        hour: "*"
+        user: "root"
+        job: "date >> /var/log/time.log"
+...

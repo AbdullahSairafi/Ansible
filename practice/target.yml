@@ -1,0 +1,8 @@
+---
+- name: playbook to modify boot target
+  hosts: webservers
+  become: yes
+  tasks:
+    - name: set default boot target to multiuser
+      command: systemctl set-default multi-user.target
+...
