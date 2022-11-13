@@ -1,0 +1,14 @@
+---
+- name: playbook to use selinux system role
+  hosts: "webservers"
+  become: yes
+  vars:
+    selinux_booleans: # array of bools that is why we put - infront of name
+      - name: httpd_can_network_connect
+        state: on
+        persistent: yes
+  tasks:
+    - name: use the linux-system-roles
+      include_role: 
+        name: linux-system-roles.selinux
+...

@@ -1,0 +1,14 @@
+---
+- name: task to create users, and set passwords
+  user:
+    name: "{{ item.username }}"
+    password: "{{ user_password | password_hash('sha512') }}"
+    groups: wheel
+    append: yes
+
+- name: task to copy ssh keys using autherized_key module
+  authorized_key:
+    user: "{{ item.username }}" # remote user
+    key: "{{ lookup('file', '/home/automation/.ssh/id_rsa.pub') }}" # local host (control node)
+    state: present
+...

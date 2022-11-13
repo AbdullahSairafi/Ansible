@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# create user "automation" on all managed nodes
+ansible all -m user -a "name=tmp_user"
+
+# copy generated key to users for passwordless login
+ansible all -m file -a "name=/home/tmp_user/.ssh state=directory"
+ansible all -m copy -a "src=/home/automation/.ssh/id_rsa.pub dest=/home/tmp_user/.ssh/authorized_keys"
+
+# allow privilege escalation for new user "automation" on managed nodes
+ansible all -m copy -a "content='tmp_user	ALL=(ALL)	NOPASSWD:ALL\n' dest='/etc/sudoers.d/tmp_user'"

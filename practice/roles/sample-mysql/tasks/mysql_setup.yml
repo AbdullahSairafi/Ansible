@@ -1,0 +1,43 @@
+---
+- name: download mysql-community
+  yum:
+    name: mysql-server
+    state: present
+
+- name: open firewall port
+  firewalld:
+    port: 3306/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: include vault vars
+  include_vars:
+    file: /home/automation/plays/secret.yaml
+
+- name: download python3 and pip3 on target machine
+  yum:
+    name: python3
+    state: latest
+
+- name: download pymysql
+  pip:
+    name: pymysql
+    state: present
+ 
+- name: start and enable mysql service
+  service:
+    name: mysqld
+    state: started
+    enabled: yes
+
+- name: set password for root db user
+  mysql_user:
+    name: root
+    password: "{{ database_password }}"
+
+- name: use template to generate configuration file
+  template:
+    src: templates/my_cnf.j2
+    dest: /etc/my.cnf
+...

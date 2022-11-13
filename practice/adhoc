@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# create user "automation" on all managed nodes
+echo "creating user"
+ansible all -m user -a "name=as" --become
+
+# copy generated ssh key to remote users for passwordless login
+echo "copying ssh key to remote users"
+ansible all -m authorized_key -a "user=as key='{{ lookup('file', '/home/automation/.ssh/id_rsa.pub')}}' state=present" --become
+
+# allow privilege escalation for new user "automation" on managed nodes
+echo "allow privilege escalation"
+ansible all -m copy -a "content='as	ALL=(ALL)	NOPASSWD:ALL\n' dest='/etc/sudoers.d/as'" --become
